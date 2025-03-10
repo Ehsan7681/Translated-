@@ -318,7 +318,6 @@
             .translator-container {
                 grid-template-columns: 1fr;
             }
-            
             .settings-grid {
                 grid-template-columns: 1fr;
             }
@@ -583,11 +582,9 @@
                 } else {
                     // Default API settings including LibreTranslate
                     const defaultApis = [
-                        { id: Date.now(), type: 'geminiFlash2', name: 'Google Gemini 2 Flash (1)', apiKey: '', enabled: false, target: 'target' },
-                        { id: Date.now() + 1, type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash (1)', apiKey: '', enabled: false, target: 'target' },
-                        { id: Date.now() + 2, type: 'openAI', name: 'OpenAI (1)', apiKey: '', enabled: false, target: 'target' },
-                        { id: Date.now() + 3, type: 'openRouter', name: 'OpenRouter (1)', apiKey: '', enabled: false, target: 'target' },
-                        { id: Date.now() + 4, type: 'libreTranslate', name: 'LibreTranslate (1)', apiKey: '', enabled: true, target: 'target' } // Free service
+                        { id: Date.now(), type: 'libreTranslate', name: 'LibreTranslate (رایگان)', apiKey: '', enabled: true, target: 'target' },
+                        { id: Date.now() + 1, type: 'openAI', name: 'OpenAI (1)', apiKey: '', enabled: false, target: 'target' },
+                        { id: Date.now() + 2, type: 'openRouter', name: 'OpenRouter (1)', apiKey: '', enabled: false, target: 'target' }
                     ];
                     apiSettingsList = defaultApis;
                     defaultApis.forEach(api => addApiSetting(api));
@@ -624,9 +621,9 @@
                             <button class="button button-secondary remove-api">حذف</button>
                         </div>
                     </div>
-                    <div class="settings-item">
-                        <label for="api-key-${id}">API کلید (اختیاری):</label>
-                        <input type="password" id="api-key-${id}" class="api-key" placeholder="کلید API را وارد کنید (برای LibreTranslate اختیاری است)" value="${apiConfig.apiKey || ''}">
+                    <div class="settings-item" ${apiConfig.type === 'libreTranslate' ? 'style="display:none;"' : ''}>
+                        <label for="api-key-${id}">API کلید:</label>
+                        <input type="password" id="api-key-${id}" class="api-key" placeholder="کلید API را وارد کنید" value="${apiConfig.apiKey || ''}">
                     </div>
                     <div class="settings-item">
                         <label for="api-target-${id}">هدف ترجمه:</label>
@@ -638,7 +635,6 @@
                 `;
                 apiSettingsContainer.appendChild(apiSetting);
 
-                // Update apiSettingsList
                 if (!apiConfig.id) {
                     apiSettingsList.push({
                         id,
@@ -650,7 +646,6 @@
                     });
                 }
 
-                // Event listeners for toggle, key, and target
                 const toggle = apiSetting.querySelector('.api-toggle');
                 const apiKeyInput = apiSetting.querySelector('.api-key');
                 const targetSelect = apiSetting.querySelector('.api-target');
@@ -661,10 +656,12 @@
                     api.enabled = toggle.checked;
                 });
 
-                apiKeyInput.addEventListener('input', () => {
-                    const api = apiSettingsList.find(a => a.id === id);
-                    api.apiKey = apiKeyInput.value;
-                });
+                if (apiKeyInput) {
+                    apiKeyInput.addEventListener('input', () => {
+                        const api = apiSettingsList.find(a => a.id === id);
+                        api.apiKey = apiKeyInput.value;
+                    });
+                }
 
                 targetSelect.addEventListener('change', () => {
                     const api = apiSettingsList.find(a => a.id === id);
@@ -681,11 +678,9 @@
             // Add new API
             addApiButton.addEventListener('click', () => {
                 const apiTypes = [
-                    { type: 'geminiFlash2', name: 'Google Gemini 2 Flash' },
-                    { type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash' },
+                    { type: 'libreTranslate', name: 'LibreTranslate (رایگان)' },
                     { type: 'openAI', name: 'OpenAI' },
-                    { type: 'openRouter', name: 'OpenRouter' },
-                    { type: 'libreTranslate', name: 'LibreTranslate' }
+                    { type: 'openRouter', name: 'OpenRouter' }
                 ];
                 const typeIndex = apiSettingsList.length % apiTypes.length;
                 const existingCount = apiSettingsList.filter(a => a.type === apiTypes[typeIndex].type).length;
@@ -718,28 +713,23 @@
 
                 try {
                     let result;
-                    if (api.type === 'geminiFlash2') {
-                        result = await translateWithGemini(text, sourceLang, targetLang, api.apiKey, '2');
-                    } else if (api.type === 'geminiFlash1') {
-                        result = await translateWithGemini(text, sourceLang, targetLang, api.apiKey, '1.5');
+                    if (api.type === 'libreTranslate') {
+                        result = await translateWithLibreTranslate(text, sourceLang, targetLang);
                     } else if (api.type === 'openAI') {
-                        result = await translateWithOpenAI(text, sourceLang, targetLang, api.apiKey);
+                        result = await translateWithOpenAI(text, sourceLang, targetLang, apiKey);
                     } else if (api.type === 'openRouter') {
-                        result = await translateWithOpenRouter(text, sourceLang, targetLang, api.apiKey);
-                    } else if (api.type === 'libreTranslate') {
-                        result = await translateWithLibreTranslate(text, sourceLang, targetLang, api.apiKey);
+                        result = await translateWithOpenRouter(text, sourceLang, targetLang, apiKey);
                     }
-                    console.log(`API ${api.name} response:`, result); // Debug log
+                    console.log(`API ${api.name} response:`, result);
                     request.resolve(result);
                 } catch (error) {
                     console.error(`API ${api.name} error:`, error);
                     request.reject(error);
                 } finally {
-                    // Delay to avoid quota issues
                     setTimeout(() => {
                         isProcessingQueue = false;
                         processQueue();
-                    }, 2000); // 2 seconds delay between requests
+                    }, 2000);
                 }
             }
 
@@ -750,22 +740,21 @@
                 });
             }
 
-            async function translateWithGemini(text, sourceLang, targetLang, apiKey, version) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-${version}-flash:generateContent?key=${apiKey}`;
+            async function translateWithLibreTranslate(text, sourceLang, targetLang) {
+                const url = 'https://libretranslate.de/translate';
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `Translate this text from ${sourceLang === 'auto' ? 'auto' : sourceLang} to ${targetLang}: ${text}`
-                            }]
-                        }]
+                        q: text,
+                        source: sourceLang === 'auto' ? 'auto' : sourceLang,
+                        target: targetLang,
+                        format: 'text'
                     })
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
-                return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No translation received';
+                if (!response.ok) throw new Error(data.error || 'LibreTranslate API error');
+                return data.translatedText || 'ترجمه دریافت نشد';
             }
 
             async function translateWithOpenAI(text, sourceLang, targetLang, apiKey) {
@@ -786,7 +775,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'OpenAI API error');
-                return data.choices?.[0]?.message?.content || 'No translation received';
+                return data.choices?.[0]?.message?.content || 'ترجمه دریافت نشد';
             }
 
             async function translateWithOpenRouter(text, sourceLang, targetLang, apiKey) {
@@ -807,24 +796,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'OpenRouter API error');
-                return data.choices?.[0]?.message?.content || 'No translation received';
-            }
-
-            async function translateWithLibreTranslate(text, sourceLang, targetLang, apiKey) {
-                const url = 'https://libretranslate.com/translate'; // Public free API
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        q: text,
-                        source: sourceLang === 'auto' ? 'auto' : sourceLang,
-                        target: targetLang,
-                        format: 'text'
-                    })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'LibreTranslate API error');
-                return data.translatedText || 'No translation received';
+                return data.choices?.[0]?.message?.content || 'ترجمه دریافت نشد';
             }
 
             // Main translation function
@@ -837,7 +809,7 @@
                 startTranslation.disabled = true;
                 translationProgressValue = 0;
                 translationProgress.style.width = '0%';
-                targetText.value = ''; // Clear target text before translation
+                targetText.value = '';
 
                 const text = sourceText.value.trim();
                 if (!text) {
@@ -853,7 +825,7 @@
 
                 try {
                     let translatedText = text;
-                    const enabledApis = apiSettingsList.filter(api => api.enabled && (api.apiKey.trim() !== '' || api.type === 'libreTranslate'));
+                    const enabledApis = apiSettingsList.filter(api => api.enabled && (api.type === 'libreTranslate' || api.apiKey.trim() !== ''));
                     if (enabledApis.length === 0) {
                         translationStatus.textContent = 'هیچ API فعال نیست یا کلید API وارد نشده است';
                         isTranslating = false;
@@ -872,13 +844,12 @@
                         let result;
                         try {
                             result = await queueRequest(api, text, sourceLang, targetLang);
-                            console.log(`Translation result from ${api.name}:`, result); // Debug log
-                            if (!result || result === 'No translation received') {
-                                throw new Error(`No valid translation from ${api.name}`);
+                            if (!result || result === 'ترجمه دریافت نشد') {
+                                throw new Error(`ترجمه ناموفق از ${api.name}`);
                             }
                             if (api.target === 'target') {
                                 translatedText = result;
-                                targetText.value = translatedText; // Ensure target text is updated
+                                targetText.value = translatedText;
                             } else if (api.target === 'source') {
                                 sourceText.value = result;
                             }
@@ -887,12 +858,11 @@
                         } catch (apiError) {
                             translationStatus.textContent = `خطا در ${api.name}: ${apiError.message}. به API بعدی می‌رود...`;
                             translationProgress.style.backgroundColor = 'var(--warning-color)';
-                            console.error(`API ${api.name} failed:`, apiError);
                             continue;
                         }
                     }
                     if (!targetText.value || targetText.value === text) {
-                        translationStatus.textContent = 'ترجمه ناموفق بود، لطفاً API دیگری را امتحان کنید یا کلید معتبر وارد کنید';
+                        translationStatus.textContent = 'ترجمه ناموفق بود، لطفاً API دیگری را امتحان کنید';
                     } else {
                         translationStatus.textContent = 'ترجمه تکمیل شد';
                     }
@@ -901,8 +871,7 @@
                     localStorage.removeItem('translationProgress');
                 } catch (error) {
                     translationStatus.textContent = `خطا کلی: ${error.message}`;
-                    translationProgress.style.backgroundColor = 'var(--error-color)');
-                    console.error('Translation error:', error);
+                    translationProgress.style.backgroundColor = 'var(--error-color)';
                 } finally {
                     isTranslating = false;
                     stopTranslation.disabled = true;
@@ -910,10 +879,11 @@
                 }
             }
 
-            // Start translation
-            startTranslation.addEventListener('click', performTranslation);
+            // Event Listeners
+            settingsToggle.addEventListener('click', () => {
+                settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+            });
 
-            // Theme toggle
             themeToggle.addEventListener('click', () => {
                 document.body.classList.toggle('dark-mode');
                 const isDark = document.body.classList.contains('dark-mode');
@@ -923,45 +893,35 @@
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
             });
 
-            // Settings panel toggle
-            settingsToggle.addEventListener('click', () => {
-                settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
-            });
-
-            // Save settings
             saveSettings.addEventListener('click', () => {
                 saveSettingsToLocal();
                 alert('تنظیمات با موفقیت ذخیره شد');
                 settingsPanel.style.display = 'none';
             });
 
-            // Copy text
             copySource.addEventListener('click', () => {
-                navigator.clipboard.writeText(sourceText.value);
-                alert('متن کپی شد');
-            });
-            copyTarget.addEventListener('click', () => {
-                navigator.clipboard.writeText(targetText.value);
-                alert('متن ترجمه‌شده کپی شد');
+                navigator.clipboard.writeText(sourceText.value).then(() => alert('متن کپی شد'));
             });
 
-            // Clear text
+            copyTarget.addEventListener('click', () => {
+                navigator.clipboard.writeText(targetText.value).then(() => alert('متن ترجمه‌شده کپی شد'));
+            });
+
             clearSource.addEventListener('click', () => {
                 sourceText.value = '';
                 updateCharacterCount();
             });
+
             clearTarget.addEventListener('click', () => {
                 targetText.value = '';
             });
 
-            // Paste text
             pasteSource.addEventListener('click', async () => {
                 const text = await navigator.clipboard.readText();
                 sourceText.value = text;
                 updateCharacterCount();
             });
 
-            // Stop translation
             stopTranslation.addEventListener('click', () => {
                 if (isTranslating) {
                     translationPaused = true;
@@ -973,7 +933,6 @@
                 }
             });
 
-            // Continue translation
             continueTranslation.addEventListener('click', async () => {
                 if (translationPaused) {
                     translationPaused = false;
@@ -985,7 +944,8 @@
                 }
             });
 
-            // Update character count on input
+            startTranslation.addEventListener('click', performTranslation);
+
             sourceText.addEventListener('input', updateCharacterCount);
 
             // Initial setup
