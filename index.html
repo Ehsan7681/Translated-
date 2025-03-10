@@ -399,89 +399,11 @@
                 </button>
             </div>
 
-            <div class="api-settings">
-                <div class="api-header">
-                    <h3>Google Gemini 2 Flash</h3>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="gemini-flash-toggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="settings-item">
-                    <label for="gemini-flash-api">API کلید:</label>
-                    <input type="password" id="gemini-flash-api" placeholder="کلید API را وارد کنید">
-                </div>
-                <div class="settings-item">
-                    <label for="gemini-flash-target">هدف ترجمه:</label>
-                    <select id="gemini-flash-target">
-                        <option value="source">متن اصلی</option>
-                        <option value="target" selected>متن ترجمه شده</option>
-                    </select>
-                </div>
+            <div id="api-settings-container">
+                <!-- API settings will be dynamically added here -->
             </div>
 
-            <div class="api-settings">
-                <div class="api-header">
-                    <h3>Google Gemini 1.5 Flash</h3>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="gemini-1-toggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="settings-item">
-                    <label for="gemini-1-api">API کلید:</label>
-                    <input type="password" id="gemini-1-api" placeholder="کلید API را وارد کنید">
-                </div>
-                <div class="settings-item">
-                    <label for="gemini-1-target">هدف ترجمه:</label>
-                    <select id="gemini-1-target">
-                        <option value="source">متن اصلی</option>
-                        <option value="target">متن ترجمه شده</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="api-settings">
-                <div class="api-header">
-                    <h3>OpenAI</h3>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="openai-toggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="settings-item">
-                    <label for="openai-api">API کلید:</label>
-                    <input type="password" id="openai-api" placeholder="کلید API را وارد کنید">
-                </div>
-                <div class="settings-item">
-                    <label for="openai-target">هدف ترجمه:</label>
-                    <select id="openai-target">
-                        <option value="source">متن اصلی</option>
-                        <option value="target">متن ترجمه شده</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="api-settings">
-                <div class="api-header">
-                    <h3>OpenRouter</h3>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="openrouter-toggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="settings-item">
-                    <label for="openrouter-api">API کلید:</label>
-                    <input type="password" id="openrouter-api" placeholder="کلید API را وارد کنید">
-                </div>
-                <div class="settings-item">
-                    <label for="openrouter-target">هدف ترجمه:</label>
-                    <select id="openrouter-target">
-                        <option value="source">متن اصلی</option>
-                        <option value="target">متن ترجمه شده</option>
-                    </select>
-                </div>
-            </div>
+            <button id="add-api" class="button">افزودن API جدید</button>
         </div>
 
         <div class="translator-container">
@@ -574,6 +496,14 @@
                     <span id="translation-status" class="status">آماده برای ترجمه</span>
                     <div class="action-buttons">
                         <div class="tooltip">
+                            <button id="start-translation" class="button">
+                                <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                شروع ترجمه
+                            </button>
+                        </div>
+                        <div class="tooltip">
                             <button id="copy-target" class="button button-secondary">
                                 <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -633,47 +563,35 @@
             const pasteSource = document.getElementById('paste-source');
             const stopTranslation = document.getElementById('stop-translation');
             const continueTranslation = document.getElementById('continue-translation');
-
-            // API Settings Elements
-            const apiSettings = {
-                geminiFlash2: {
-                    toggle: document.getElementById('gemini-flash-toggle'),
-                    apiKey: document.getElementById('gemini-flash-api'),
-                    target: document.getElementById('gemini-flash-target')
-                },
-                geminiFlash1: {
-                    toggle: document.getElementById('gemini-1-toggle'),
-                    apiKey: document.getElementById('gemini-1-api'),
-                    target: document.getElementById('gemini-1-target')
-                },
-                openAI: {
-                    toggle: document.getElementById('openai-toggle'),
-                    apiKey: document.getElementById('openai-api'),
-                    target: document.getElementById('openai-target')
-                },
-                openRouter: {
-                    toggle: document.getElementById('openrouter-toggle'),
-                    apiKey: document.getElementById('openrouter-api'),
-                    target: document.getElementById('openrouter-target')
-                }
-            };
+            const startTranslation = document.getElementById('start-translation');
+            const apiSettingsContainer = document.getElementById('api-settings-container');
+            const addApiButton = document.getElementById('add-api');
 
             // State Management
             let isTranslating = false;
             let translationPaused = false;
             let lastTranslatedText = '';
             let translationProgressValue = 0;
+            let apiSettingsList = [];
 
             // Load saved settings from localStorage
             function loadSettings() {
-                for (const api in apiSettings) {
-                    const savedApiKey = localStorage.getItem(`${api}_apiKey`);
-                    const savedToggle = localStorage.getItem(`${api}_toggle`) === 'true';
-                    const savedTarget = localStorage.getItem(`${api}_target`);
-                    if (savedApiKey) apiSettings[api].apiKey.value = savedApiKey;
-                    if (savedToggle) apiSettings[api].toggle.checked = true;
-                    if (savedTarget) apiSettings[api].target.value = savedTarget;
+                const savedApis = JSON.parse(localStorage.getItem('apiSettingsList')) || [];
+                if (savedApis.length > 0) {
+                    apiSettingsList = savedApis;
+                    savedApis.forEach(api => addApiSetting(api));
+                } else {
+                    // Default API settings
+                    const defaultApis = [
+                        { id: Date.now(), type: 'geminiFlash2', name: 'Google Gemini 2 Flash (1)', apiKey: '', enabled: true, target: 'target' },
+                        { id: Date.now() + 1, type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash (1)', apiKey: '', enabled: false, target: 'target' },
+                        { id: Date.now() + 2, type: 'openAI', name: 'OpenAI (1)', apiKey: '', enabled: false, target: 'target' },
+                        { id: Date.now() + 3, type: 'openRouter', name: 'OpenRouter (1)', apiKey: '', enabled: false, target: 'target' }
+                    ];
+                    apiSettingsList = defaultApis;
+                    defaultApis.forEach(api => addApiSetting(api));
                 }
+
                 const savedTheme = localStorage.getItem('theme');
                 if (savedTheme === 'dark') {
                     document.body.classList.add('dark-mode');
@@ -685,19 +603,147 @@
 
             // Save settings to localStorage
             function saveSettingsToLocal() {
-                for (const api in apiSettings) {
-                    localStorage.setItem(`${api}_apiKey`, apiSettings[api].apiKey.value);
-                    localStorage.setItem(`${api}_toggle`, apiSettings[api].toggle.checked);
-                    localStorage.setItem(`${api}_target`, apiSettings[api].target.value);
-                }
+                localStorage.setItem('apiSettingsList', JSON.stringify(apiSettingsList));
             }
+
+            // Add API setting dynamically
+            function addApiSetting(apiConfig) {
+                const id = apiConfig.id || Date.now();
+                const apiSetting = document.createElement('div');
+                apiSetting.classList.add('api-settings');
+                apiSetting.setAttribute('data-id', id);
+                apiSetting.innerHTML = `
+                    <div class="api-header">
+                        <h3>${apiConfig.name}</h3>
+                        <div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" class="api-toggle" ${apiConfig.enabled ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <button class="button button-secondary remove-api">حذف</button>
+                        </div>
+                    </div>
+                    <div class="settings-item">
+                        <label for="api-key-${id}">API کلید:</label>
+                        <input type="password" id="api-key-${id}" class="api-key" placeholder="کلید API را وارد کنید" value="${apiConfig.apiKey || ''}">
+                    </div>
+                    <div class="settings-item">
+                        <label for="api-target-${id}">هدف ترجمه:</label>
+                        <select id="api-target-${id}" class="api-target">
+                            <option value="source" ${apiConfig.target === 'source' ? 'selected' : ''}>متن اصلی</option>
+                            <option value="target" ${apiConfig.target === 'target' ? 'selected' : ''}>متن ترجمه شده</option>
+                        </select>
+                    </div>
+                `;
+                apiSettingsContainer.appendChild(apiSetting);
+
+                // Update apiSettingsList
+                if (!apiConfig.id) {
+                    apiSettingsList.push({
+                        id,
+                        type: apiConfig.type,
+                        name: apiConfig.name,
+                        apiKey: apiConfig.apiKey || '',
+                        enabled: apiConfig.enabled || false,
+                        target: apiConfig.target || 'target'
+                    });
+                }
+
+                // Event listeners for toggle, key, and target
+                const toggle = apiSetting.querySelector('.api-toggle');
+                const apiKeyInput = apiSetting.querySelector('.api-key');
+                const targetSelect = apiSetting.querySelector('.api-target');
+                const removeButton = apiSetting.querySelector('.remove-api');
+
+                toggle.addEventListener('change', () => {
+                    const api = apiSettingsList.find(a => a.id === id);
+                    api.enabled = toggle.checked;
+                });
+
+                apiKeyInput.addEventListener('input', () => {
+                    const api = apiSettingsList.find(a => a.id === id);
+                    api.apiKey = apiKeyInput.value;
+                });
+
+                targetSelect.addEventListener('change', () => {
+                    const api = apiSettingsList.find(a => a.id === id);
+                    api.target = targetSelect.value;
+                });
+
+                removeButton.addEventListener('click', () => {
+                    apiSettingsContainer.removeChild(apiSetting);
+                    apiSettingsList = apiSettingsList.filter(a => a.id !== id);
+                    saveSettingsToLocal();
+                });
+            }
+
+            // Add new API
+            addApiButton.addEventListener('click', () => {
+                const apiTypes = [
+                    { type: 'geminiFlash2', name: 'Google Gemini 2 Flash' },
+                    { type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash' },
+                    { type: 'openAI', name: 'OpenAI' },
+                    { type: 'openRouter', name: 'OpenRouter' }
+                ];
+                const typeIndex = apiSettingsList.length % apiTypes.length;
+                const existingCount = apiSettingsList.filter(a => a.type === apiTypes[typeIndex].type).length;
+                const newApi = {
+                    id: Date.now(),
+                    type: apiTypes[typeIndex].type,
+                    name: `${apiTypes[typeIndex].name} (${existingCount + 1})`,
+                    apiKey: '',
+                    enabled: true,
+                    target: 'target'
+                };
+                addApiSetting(newApi);
+            });
 
             // Update character count
             function updateCharacterCount() {
                 sourceCount.textContent = `${sourceText.value.length} کاراکتر`;
             }
 
-            // API Translation Functions
+            // API Translation Functions with Rate Limiting
+            const requestQueue = [];
+            let isProcessingQueue = false;
+
+            async function processQueue() {
+                if (isProcessingQueue || requestQueue.length === 0) return;
+                isProcessingQueue = true;
+
+                const request = requestQueue.shift();
+                const { api, text, sourceLang, targetLang } = request;
+
+                try {
+                    let result;
+                    if (api.type === 'geminiFlash2') {
+                        result = await translateWithGemini(text, sourceLang, targetLang, api.apiKey, '2');
+                    } else if (api.type === 'geminiFlash1') {
+                        result = await translateWithGemini(text, sourceLang, targetLang, api.apiKey, '1.5');
+                    } else if (api.type === 'openAI') {
+                        result = await translateWithOpenAI(text, sourceLang, targetLang, api.apiKey);
+                    } else if (api.type === 'openRouter') {
+                        result = await translateWithOpenRouter(text, sourceLang, targetLang, api.apiKey);
+                    }
+                    request.resolve(result);
+                } catch (error) {
+                    request.reject(error);
+                } finally {
+                    // Delay to avoid quota issues
+                    setTimeout(() => {
+                        isProcessingQueue = false;
+                        processQueue();
+                    }, 2000); // 2 seconds delay between requests
+                }
+            }
+
+            function queueRequest(api, text, sourceLang, targetLang) {
+                return new Promise((resolve, reject) => {
+                    requestQueue.push({ api, text, sourceLang, targetLang, resolve, reject });
+                    if (!isProcessingQueue) processQueue();
+                });
+            }
+
             async function translateWithGemini(text, sourceLang, targetLang, apiKey, version) {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-${version}-flash:generateContent?key=${apiKey}`;
                 const response = await fetch(url, {
@@ -765,6 +811,7 @@
                 translationStatus.textContent = 'در حال ترجمه...';
                 stopTranslation.disabled = false;
                 continueTranslation.disabled = true;
+                startTranslation.disabled = true;
                 translationProgressValue = 0;
                 translationProgress.style.width = '0%';
 
@@ -773,6 +820,7 @@
                     translationStatus.textContent = 'متن برای ترجمه وارد کنید';
                     isTranslating = false;
                     stopTranslation.disabled = true;
+                    startTranslation.disabled = false;
                     return;
                 }
 
@@ -781,48 +829,55 @@
 
                 try {
                     let translatedText = text;
-                    for (const api in apiSettings) {
-                        if (apiSettings[api].toggle.checked && apiSettings[api].apiKey.value) {
-                            if (translationPaused) break;
-                            let result;
-                            if (api === 'geminiFlash2') {
-                                result = await translateWithGemini(text, sourceLang, targetLang, apiSettings[api].apiKey.value, '2');
-                            } else if (api === 'geminiFlash1') {
-                                result = await translateWithGemini(text, sourceLang, targetLang, apiSettings[api].apiKey.value, '1.5');
-                            } else if (api === 'openAI') {
-                                result = await translateWithOpenAI(text, sourceLang, targetLang, apiSettings[api].apiKey.value);
-                            } else if (api === 'openRouter') {
-                                result = await translateWithOpenRouter(text, sourceLang, targetLang, apiSettings[api].apiKey.value);
-                            }
+                    const enabledApis = apiSettingsList.filter(api => api.enabled && api.apiKey.trim() !== '');
+                    if (enabledApis.length === 0) {
+                        translationStatus.textContent = 'هیچ API فعال نیست یا کلید API وارد نشده است';
+                        isTranslating = false;
+                        stopTranslation.disabled = true;
+                        startTranslation.disabled = false;
+                        return;
+                    }
 
-                            if (apiSettings[api].target.value === 'target') {
+                    const progressPerApi = 100 / enabledApis.length;
+                    for (const api of enabledApis) {
+                        if (translationPaused) {
+                            localStorage.setItem('lastTranslatedText', translatedText);
+                            localStorage.setItem('translationProgress', translationProgressValue);
+                            break;
+                        }
+                        let result;
+                        try {
+                            result = await queueRequest(api, text, sourceLang, targetLang);
+                            if (api.target === 'target') {
                                 translatedText = result;
                                 targetText.value = translatedText;
-                            } else if (apiSettings[api].target.value === 'source') {
+                            } else if (api.target === 'source') {
                                 sourceText.value = result;
                             }
-                            translationProgressValue += 25;
+                            translationProgressValue += progressPerApi;
                             translationProgress.style.width = `${translationProgressValue}%`;
+                        } catch (apiError) {
+                            translationStatus.textContent = `خطا در ${api.name}: ${apiError.message}. به API بعدی می‌رود...`;
+                            translationProgress.style.backgroundColor = 'var(--warning-color)';
+                            continue;
                         }
                     }
                     translationStatus.textContent = 'ترجمه تکمیل شد';
                     lastTranslatedText = translatedText;
+                    localStorage.removeItem('lastTranslatedText');
+                    localStorage.removeItem('translationProgress');
                 } catch (error) {
-                    translationStatus.textContent = `خطا در ترجمه: ${error.message}`;
+                    translationStatus.textContent = `خطا کلی: ${error.message}`;
                     translationProgress.style.backgroundColor = 'var(--error-color)';
                 } finally {
                     isTranslating = false;
                     stopTranslation.disabled = true;
+                    startTranslation.disabled = false;
                 }
             }
 
-            // Live translation with debounce
-            let debounceTimeout;
-            sourceText.addEventListener('input', () => {
-                clearTimeout(debounceTimeout);
-                updateCharacterCount();
-                debounceTimeout = setTimeout(performTranslation, 500);
-            });
+            // Start translation
+            startTranslation.addEventListener('click', performTranslation);
 
             // Theme toggle
             themeToggle.addEventListener('click', () => {
@@ -870,7 +925,6 @@
                 const text = await navigator.clipboard.readText();
                 sourceText.value = text;
                 updateCharacterCount();
-                performTranslation();
             });
 
             // Stop translation
@@ -881,16 +935,24 @@
                     translationStatus.textContent = 'ترجمه متوقف شد';
                     stopTranslation.disabled = true;
                     continueTranslation.disabled = false;
+                    startTranslation.disabled = false;
                 }
             });
 
             // Continue translation
-            continueTranslation.addEventListener('click', () => {
+            continueTranslation.addEventListener('click', async () => {
                 if (translationPaused) {
                     translationPaused = false;
-                    performTranslation();
+                    const savedText = localStorage.getItem('lastTranslatedText');
+                    const savedProgress = localStorage.getItem('translationProgress');
+                    if (savedText) sourceText.value = savedText;
+                    if (savedProgress) translationProgress.style.width = `${savedProgress}%`;
+                    await performTranslation();
                 }
             });
+
+            // Update character count on input
+            sourceText.addEventListener('input', updateCharacterCount);
 
             // Initial setup
             loadSettings();
@@ -899,4 +961,3 @@
     </script>
 </body>
 </html>
-​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
