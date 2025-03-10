@@ -581,12 +581,13 @@
                     apiSettingsList = savedApis;
                     savedApis.forEach(api => addApiSetting(api));
                 } else {
-                    // Default API settings
+                    // Default API settings including LibreTranslate
                     const defaultApis = [
-                        { id: Date.now(), type: 'geminiFlash2', name: 'Google Gemini 2 Flash (1)', apiKey: '', enabled: true, target: 'target' },
+                        { id: Date.now(), type: 'geminiFlash2', name: 'Google Gemini 2 Flash (1)', apiKey: '', enabled: false, target: 'target' },
                         { id: Date.now() + 1, type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash (1)', apiKey: '', enabled: false, target: 'target' },
                         { id: Date.now() + 2, type: 'openAI', name: 'OpenAI (1)', apiKey: '', enabled: false, target: 'target' },
-                        { id: Date.now() + 3, type: 'openRouter', name: 'OpenRouter (1)', apiKey: '', enabled: false, target: 'target' }
+                        { id: Date.now() + 3, type: 'openRouter', name: 'OpenRouter (1)', apiKey: '', enabled: false, target: 'target' },
+                        { id: Date.now() + 4, type: 'libreTranslate', name: 'LibreTranslate (1)', apiKey: '', enabled: true, target: 'target' } // Free service
                     ];
                     apiSettingsList = defaultApis;
                     defaultApis.forEach(api => addApiSetting(api));
@@ -624,8 +625,8 @@
                         </div>
                     </div>
                     <div class="settings-item">
-                        <label for="api-key-${id}">API کلید:</label>
-                        <input type="password" id="api-key-${id}" class="api-key" placeholder="کلید API را وارد کنید" value="${apiConfig.apiKey || ''}">
+                        <label for="api-key-${id}">API کلید (اختیاری):</label>
+                        <input type="password" id="api-key-${id}" class="api-key" placeholder="کلید API را وارد کنید (برای LibreTranslate اختیاری است)" value="${apiConfig.apiKey || ''}">
                     </div>
                     <div class="settings-item">
                         <label for="api-target-${id}">هدف ترجمه:</label>
@@ -683,7 +684,8 @@
                     { type: 'geminiFlash2', name: 'Google Gemini 2 Flash' },
                     { type: 'geminiFlash1', name: 'Google Gemini 1.5 Flash' },
                     { type: 'openAI', name: 'OpenAI' },
-                    { type: 'openRouter', name: 'OpenRouter' }
+                    { type: 'openRouter', name: 'OpenRouter' },
+                    { type: 'libreTranslate', name: 'LibreTranslate' }
                 ];
                 const typeIndex = apiSettingsList.length % apiTypes.length;
                 const existingCount = apiSettingsList.filter(a => a.type === apiTypes[typeIndex].type).length;
@@ -724,8 +726,10 @@
                         result = await translateWithOpenAI(text, sourceLang, targetLang, api.apiKey);
                     } else if (api.type === 'openRouter') {
                         result = await translateWithOpenRouter(text, sourceLang, targetLang, api.apiKey);
+                    } else if (api.type === 'libreTranslate') {
+                        result = await translateWithLibreTranslate(text, sourceLang, targetLang, api.apiKey);
                     }
-                    console.log(`API ${api.name} response:`, result); // Log the response for debugging
+                    console.log(`API ${api.name} response:`, result); // Debug log
                     request.resolve(result);
                 } catch (error) {
                     console.error(`API ${api.name} error:`, error);
@@ -754,7 +758,7 @@
                     body: JSON.stringify({
                         contents: [{
                             parts: [{
-                                text: `Translate this text from ${sourceLang === 'auto' ? 'any language' : sourceLang} to ${targetLang}: ${text}`
+                                text: `Translate this text from ${sourceLang === 'auto' ? 'auto' : sourceLang} to ${targetLang}: ${text}`
                             }]
                         }]
                     })
@@ -776,7 +780,7 @@
                         model: 'gpt-3.5-turbo',
                         messages: [{
                             role: 'user',
-                            content: `Translate this text from ${sourceLang === 'auto' ? 'any language' : sourceLang} to ${targetLang}: ${text}`
+                            content: `Translate this text from ${sourceLang === 'auto' ? 'auto' : sourceLang} to ${targetLang}: ${text}`
                         }]
                     })
                 });
@@ -797,13 +801,30 @@
                         model: 'openai/gpt-3.5-turbo',
                         messages: [{
                             role: 'user',
-                            content: `Translate this text from ${sourceLang === 'auto' ? 'any language' : sourceLang} to ${targetLang}: ${text}`
+                            content: `Translate this text from ${sourceLang === 'auto' ? 'auto' : sourceLang} to ${targetLang}: ${text}`
                         }]
                     })
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'OpenRouter API error');
                 return data.choices?.[0]?.message?.content || 'No translation received';
+            }
+
+            async function translateWithLibreTranslate(text, sourceLang, targetLang, apiKey) {
+                const url = 'https://libretranslate.com/translate'; // Public free API
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        q: text,
+                        source: sourceLang === 'auto' ? 'auto' : sourceLang,
+                        target: targetLang,
+                        format: 'text'
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'LibreTranslate API error');
+                return data.translatedText || 'No translation received';
             }
 
             // Main translation function
@@ -832,7 +853,7 @@
 
                 try {
                     let translatedText = text;
-                    const enabledApis = apiSettingsList.filter(api => api.enabled && api.apiKey.trim() !== '');
+                    const enabledApis = apiSettingsList.filter(api => api.enabled && (api.apiKey.trim() !== '' || api.type === 'libreTranslate'));
                     if (enabledApis.length === 0) {
                         translationStatus.textContent = 'هیچ API فعال نیست یا کلید API وارد نشده است';
                         isTranslating = false;
@@ -866,11 +887,12 @@
                         } catch (apiError) {
                             translationStatus.textContent = `خطا در ${api.name}: ${apiError.message}. به API بعدی می‌رود...`;
                             translationProgress.style.backgroundColor = 'var(--warning-color)';
+                            console.error(`API ${api.name} failed:`, apiError);
                             continue;
                         }
                     }
-                    if (!targetText.value && translatedText === text) {
-                        translationStatus.textContent = 'ترجمه ناموفق بود، لطفاً API دیگری را امتحان کنید';
+                    if (!targetText.value || targetText.value === text) {
+                        translationStatus.textContent = 'ترجمه ناموفق بود، لطفاً API دیگری را امتحان کنید یا کلید معتبر وارد کنید';
                     } else {
                         translationStatus.textContent = 'ترجمه تکمیل شد';
                     }
@@ -879,7 +901,7 @@
                     localStorage.removeItem('translationProgress');
                 } catch (error) {
                     translationStatus.textContent = `خطا کلی: ${error.message}`;
-                    translationProgress.style.backgroundColor = 'var(--error-color)';
+                    translationProgress.style.backgroundColor = 'var(--error-color)');
                     console.error('Translation error:', error);
                 } finally {
                     isTranslating = false;
