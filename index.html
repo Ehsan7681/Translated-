@@ -725,8 +725,10 @@
                     } else if (api.type === 'openRouter') {
                         result = await translateWithOpenRouter(text, sourceLang, targetLang, api.apiKey);
                     }
+                    console.log(`API ${api.name} response:`, result); // Log the response for debugging
                     request.resolve(result);
                 } catch (error) {
+                    console.error(`API ${api.name} error:`, error);
                     request.reject(error);
                 } finally {
                     // Delay to avoid quota issues
@@ -759,7 +761,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
-                return data.candidates[0].content.parts[0].text;
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No translation received';
             }
 
             async function translateWithOpenAI(text, sourceLang, targetLang, apiKey) {
@@ -780,7 +782,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'OpenAI API error');
-                return data.choices[0].message.content;
+                return data.choices?.[0]?.message?.content || 'No translation received';
             }
 
             async function translateWithOpenRouter(text, sourceLang, targetLang, apiKey) {
@@ -801,7 +803,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error?.message || 'OpenRouter API error');
-                return data.choices[0].message.content;
+                return data.choices?.[0]?.message?.content || 'No translation received';
             }
 
             // Main translation function
@@ -814,6 +816,7 @@
                 startTranslation.disabled = true;
                 translationProgressValue = 0;
                 translationProgress.style.width = '0%';
+                targetText.value = ''; // Clear target text before translation
 
                 const text = sourceText.value.trim();
                 if (!text) {
@@ -848,9 +851,13 @@
                         let result;
                         try {
                             result = await queueRequest(api, text, sourceLang, targetLang);
+                            console.log(`Translation result from ${api.name}:`, result); // Debug log
+                            if (!result || result === 'No translation received') {
+                                throw new Error(`No valid translation from ${api.name}`);
+                            }
                             if (api.target === 'target') {
                                 translatedText = result;
-                                targetText.value = translatedText;
+                                targetText.value = translatedText; // Ensure target text is updated
                             } else if (api.target === 'source') {
                                 sourceText.value = result;
                             }
@@ -862,13 +869,18 @@
                             continue;
                         }
                     }
-                    translationStatus.textContent = 'ترجمه تکمیل شد';
+                    if (!targetText.value && translatedText === text) {
+                        translationStatus.textContent = 'ترجمه ناموفق بود، لطفاً API دیگری را امتحان کنید';
+                    } else {
+                        translationStatus.textContent = 'ترجمه تکمیل شد';
+                    }
                     lastTranslatedText = translatedText;
                     localStorage.removeItem('lastTranslatedText');
                     localStorage.removeItem('translationProgress');
                 } catch (error) {
                     translationStatus.textContent = `خطا کلی: ${error.message}`;
                     translationProgress.style.backgroundColor = 'var(--error-color)';
+                    console.error('Translation error:', error);
                 } finally {
                     isTranslating = false;
                     stopTranslation.disabled = true;
